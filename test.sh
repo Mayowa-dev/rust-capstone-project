@@ -12,7 +12,7 @@ sleep 10
 echo "Waiting for bitcoind to be fully initialized..."
 
 while true; do
-  result=$(curl --silent --user alice:password --data-binary \
+  result=$(curl --silent --user mayowa:password --data-binary \
     '{"jsonrpc":"1.0","id":"ping","method":"getblockchaininfo","params":[]}' \
     -H 'content-type: text/plain;' http://127.0.0.1:18443)
 
