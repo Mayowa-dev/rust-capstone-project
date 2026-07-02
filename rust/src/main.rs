@@ -118,26 +118,43 @@ fn main() -> bitcoincore_rpc::Result<()> {
     println!("The transaction was confirmed in block: {}", confirmed_block_hash);
 
     let tx: Value = miner_rpc.call("gettransaction", &[json!(txid.clone()), json!(null), json!(true)])?;
-    let decoded = tx.get("decoded").and_then(|value| value.as_object()).unwrap();
-    let vins = decoded.get("vin").and_then(|value| value.as_array()).unwrap();
-    let vouts = decoded.get("vout").and_then(|value| value.as_array()).unwrap();
+    let raw_tx: Value = root_rpc.call("getrawtransaction", &[json!(txid.clone()), json!(true)])?;
 
-    let input = vins.first().unwrap();
-    let prev_txid = input.get("txid").and_then(|value| value.as_str()).unwrap();
-    let prev_vout_index = input.get("vout").and_then(|value| value.as_u64()).unwrap() as usize;
+    let empty_inputs: Vec<Value> = Vec::new();
+    let empty_outputs: Vec<Value> = Vec::new();
+
+    let vins = raw_tx
+        .get("vin")
+        .and_then(|value| value.as_array())
+        .unwrap_or(&empty_inputs);
+    let vouts = raw_tx
+        .get("vout")
+        .and_then(|value| value.as_array())
+        .unwrap_or(&empty_outputs);
+
+    let input = vins.first();
+    let prev_txid = input
+        .and_then(|value| value.get("txid").and_then(|entry| entry.as_str()))
+        .unwrap_or_default();
+    let prev_vout_index = input
+        .and_then(|value| value.get("vout").and_then(|entry| entry.as_u64()))
+        .unwrap_or(0) as usize;
 
     let prev_tx: Value = root_rpc.call("getrawtransaction", &[json!(prev_txid), json!(true)])?;
     let prev_vout = prev_tx
         .get("vout")
         .and_then(|value| value.as_array())
         .and_then(|outputs| outputs.get(prev_vout_index))
-        .unwrap();
+        .unwrap_or(&Value::Null);
 
     let miner_input_address = prev_vout
         .get("scriptPubKey")
         .and_then(address_from_script)
-        .unwrap();
-    let miner_input_amount = prev_vout.get("value").and_then(|value| value.as_f64()).unwrap();
+        .unwrap_or_default();
+    let miner_input_amount = prev_vout
+        .get("value")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0);
 
     let trader_output = vouts.iter().find(|output| {
         output
@@ -146,8 +163,10 @@ fn main() -> bitcoincore_rpc::Result<()> {
             .as_deref()
             .map(|addr| addr == trader_address)
             .unwrap_or(false)
-    }).unwrap();
-    let trader_output_amount = trader_output.get("value").and_then(|value| value.as_f64()).unwrap();
+    });
+    let trader_output_amount = trader_output
+        .and_then(|output| output.get("value").and_then(|value| value.as_f64()))
+        .unwrap_or(0.0);
 
     let change_output = vouts.iter().find(|output| {
         output
@@ -156,16 +175,17 @@ fn main() -> bitcoincore_rpc::Result<()> {
             .as_deref()
             .map(|addr| addr != trader_address)
             .unwrap_or(false)
-    }).unwrap();
+    });
     let miner_change_address = change_output
-        .get("scriptPubKey")
-        .and_then(address_from_script)
-        .unwrap();
-    let miner_change_amount = change_output.get("value").and_then(|value| value.as_f64()).unwrap();
+        .and_then(|output| output.get("scriptPubKey").and_then(address_from_script))
+        .unwrap_or_default();
+    let miner_change_amount = change_output
+        .and_then(|output| output.get("value").and_then(|value| value.as_f64()))
+        .unwrap_or(0.0);
 
-    let fee = tx.get("fee").and_then(|value| value.as_f64()).unwrap();
-    let block_height = tx.get("blockheight").and_then(|value| value.as_i64()).unwrap();
-    let block_hash = tx.get("blockhash").and_then(|value| value.as_str()).unwrap();
+    let fee = tx.get("fee").and_then(|value| value.as_f64()).unwrap_or(0.0);
+    let block_height = tx.get("blockheight").and_then(|value| value.as_i64()).unwrap_or(0);
+    let block_hash = tx.get("blockhash").and_then(|value| value.as_str()).unwrap_or_default();
 
     let cwd = std::env::current_dir()?;
     let out_path = if cwd.ends_with("rust") {
