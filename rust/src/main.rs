@@ -71,10 +71,8 @@ fn mine_until_spendable(
     let mut balance: Amount = wallet_rpc.call("getbalance", &[])?;
 
     while balance.to_btc() <= 0.0 {
-        let new_blocks: Vec<String> = root_rpc.call(
-            "generatetoaddress",
-            &[json!(1), json!(reward_address)],
-        )?;
+        let new_blocks: Vec<String> =
+            root_rpc.call("generatetoaddress", &[json!(1), json!(reward_address)])?;
         blocks_mined += new_blocks.len() as u64;
         balance = wallet_rpc.call("getbalance", &[])?;
     }
@@ -97,8 +95,12 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let reward_address: String = miner_rpc.call("getnewaddress", &[json!("Mining Reward")])?;
     println!("Miner reward address: {}", reward_address);
 
-    let (blocks_mined, miner_balance) = mine_until_spendable(&root_rpc, &miner_rpc, &reward_address)?;
-    println!("It took {} block(s) to make the Miner wallet spendable.", blocks_mined);
+    let (blocks_mined, miner_balance) =
+        mine_until_spendable(&root_rpc, &miner_rpc, &reward_address)?;
+    println!(
+        "It took {} block(s) to make the Miner wallet spendable.",
+        blocks_mined
+    );
     println!("Miner wallet balance: {:.8} BTC", miner_balance.to_btc());
 
     // Coinbase rewards only become spendable after enough confirmations, so the balance stays unavailable at first.
@@ -107,17 +109,27 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let trader_address: String = trader_rpc.call("getnewaddress", &[json!("Received")])?;
     println!("Trader receiving address: {}", trader_address);
 
-    let txid: String = miner_rpc.call("sendtoaddress", &[json!(trader_address.clone()), json!(20.0)])?;
+    let txid: String = miner_rpc.call(
+        "sendtoaddress",
+        &[json!(trader_address.clone()), json!(20.0)],
+    )?;
     println!("Transaction created: {}", txid);
 
     let mempool_entry: Value = root_rpc.call("getmempoolentry", &[json!(txid.clone())])?;
     println!("Current mempool entry: {}", mempool_entry);
 
-    let mined_block: Vec<String> = root_rpc.call("generatetoaddress", &[json!(1), json!(reward_address)])?;
+    let mined_block: Vec<String> =
+        root_rpc.call("generatetoaddress", &[json!(1), json!(reward_address)])?;
     let confirmed_block_hash = mined_block.first().cloned().unwrap_or_default();
-    println!("The transaction was confirmed in block: {}", confirmed_block_hash);
+    println!(
+        "The transaction was confirmed in block: {}",
+        confirmed_block_hash
+    );
 
-    let tx: Value = miner_rpc.call("gettransaction", &[json!(txid.clone()), json!(null), json!(true)])?;
+    let tx: Value = miner_rpc.call(
+        "gettransaction",
+        &[json!(txid.clone()), json!(null), json!(true)],
+    )?;
     let raw_tx: Value = root_rpc.call("getrawtransaction", &[json!(txid.clone()), json!(true)])?;
 
     let empty_inputs: Vec<Value> = Vec::new();
@@ -183,13 +195,24 @@ fn main() -> bitcoincore_rpc::Result<()> {
         .and_then(|output| output.get("value").and_then(|value| value.as_f64()))
         .unwrap_or(0.0);
 
-    let fee = tx.get("fee").and_then(|value| value.as_f64()).unwrap_or(0.0);
-    let block_height = tx.get("blockheight").and_then(|value| value.as_i64()).unwrap_or(0);
-    let block_hash = tx.get("blockhash").and_then(|value| value.as_str()).unwrap_or_default();
+    let fee = tx
+        .get("fee")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(0.0);
+    let block_height = tx
+        .get("blockheight")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(0);
+    let block_hash = tx
+        .get("blockhash")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default();
 
     let cwd = std::env::current_dir()?;
     let out_path = if cwd.ends_with("rust") {
-        cwd.parent().map(|path| path.join("out.txt")).unwrap_or_else(|| cwd.join("out.txt"))
+        cwd.parent()
+            .map(|path| path.join("out.txt"))
+            .unwrap_or_else(|| cwd.join("out.txt"))
     } else {
         cwd.join("out.txt")
     };
