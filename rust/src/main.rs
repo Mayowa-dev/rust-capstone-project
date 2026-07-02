@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 const RPC_URL: &str = "http://127.0.0.1:18443";
-const RPC_USER: &str = "alice";
+const RPC_USER: &str = "mayowa";
 const RPC_PASS: &str = "password";
 
 fn wallet_client(wallet_name: &str) -> bitcoincore_rpc::Result<Client> {
